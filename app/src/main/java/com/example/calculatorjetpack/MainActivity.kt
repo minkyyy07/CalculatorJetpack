@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,7 +28,6 @@ class MainActivity : ComponentActivity() {
             CalculatorJetpackTheme {
                 var isDarkTheme by remember { mutableStateOf(false) }
 
-                // Устанавливаем цвет фона для Surface
                 val backgroundColor = if (isDarkTheme) Color(0xFF121212) else Color(0xFFADE1F5)
 
                 Surface(
@@ -57,8 +57,8 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
     var result by remember { mutableStateOf("0") }
     var operation by remember { mutableStateOf("") }
     var history by remember { mutableStateOf("") }
+    var historyList by remember { mutableStateOf(mutableListOf<String>()) }
 
-    // Цвета для светлой и темной темы
     val backgroundColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color(0xFFFFFFFF)
     val textColor = if (isDarkTheme) Color.White else Color(0xFF333333)
     val operatorButtonColor = if (isDarkTheme) Color(0xFF0D6EFD) else Color(0xFF0D6EFD)
@@ -80,14 +80,12 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Переключатель темы
             Switch(
                 checked = isDarkTheme,
                 onCheckedChange = { onThemeChange(it) },
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            // История и результат
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -113,12 +111,27 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
                 )
             }
 
-            // Кнопки калькулятора
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp)
+                    .padding(vertical = 8.dp),
+                reverseLayout = true
+            ) {
+                items(historyList.size) { index ->
+                    Text(
+                        text = historyList[index],
+                        modifier = Modifier.padding(8.dp),
+                        color = textColor.copy(alpha = 0.7f),
+                        fontSize = 14.sp
+                    )
+                }
+            }
+
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Первый ряд: AC, +/-, %, /
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -133,6 +146,7 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
                             result = "0"
                             operation = ""
                             history = ""
+                            historyList.clear()
                         }
                     )
                     ModernCalculatorButton(
@@ -179,7 +193,6 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
                     )
                 }
 
-                // Второй ряд: 7, 8, 9, x
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -229,7 +242,6 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
                     )
                 }
 
-                // Третий ряд: 4, 5, 6, -
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -279,7 +291,6 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
                     )
                 }
 
-                // Четвертый ряд: 1, 2, 3, +
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -329,7 +340,6 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
                     )
                 }
 
-                // Пятый ряд: 0, ., =
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -373,8 +383,11 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
                                     else -> num2
                                 }
 
-                                val displayHistory = "$history $operation $input"
-                                history = displayHistory
+                                val displayHistory = "$history $operation $input = $result"
+                                historyList.add(0, displayHistory)
+                                if (historyList.size > 10) {
+                                    historyList.removeAt(historyList.lastIndex)
+                                }
                                 result = if (calculatedResult.isNaN()) "Error" else calculatedResult.toString()
                                 input = ""
                                 operation = ""
