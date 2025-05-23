@@ -5,9 +5,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.calculatorjetpack.ui.theme.CalculatorJetpackTheme
+import kotlin.math.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,132 +32,250 @@ class MainActivity : ComponentActivity() {
         setContent {
             CalculatorJetpackTheme {
                 var isDarkTheme by remember { mutableStateOf(false) }
-
-                val backgroundColor = if (isDarkTheme) Color(0xFF121212) else Color(0xFFADE1F5)
-
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = backgroundColor
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        ModernCalculator(
-                            isDarkTheme = isDarkTheme,
-                            onThemeChange = { isDarkTheme = it }
-                        )
-                    }
-                }
+                MinimalistCalculator(
+                    isDarkTheme = isDarkTheme,
+                    onThemeChange = { isDarkTheme = it }
+                )
             }
         }
     }
 }
 
+// Функция для преобразования градусов в радианы
+private fun degreesToRadians(degrees: Double): Double {
+    return degrees * (PI / 180.0)
+}
+
 @Composable
-fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
+fun MinimalistCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
     var input by remember { mutableStateOf("") }
     var result by remember { mutableStateOf("0") }
     var operation by remember { mutableStateOf("") }
-    var history by remember { mutableStateOf("") }
-    var historyList by remember { mutableStateOf(mutableListOf<String>()) }
+    var previousNumber by remember { mutableStateOf("") }
+    var currentCalculation by remember { mutableStateOf("") }
+    var isRadians by remember { mutableStateOf(true) }
+    var memoryValue by remember { mutableStateOf("0.0") }
+    var showScientificKeypad by remember { mutableStateOf(false) }
 
-    val backgroundColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color(0xFFFFFFFF)
+    val backgroundColor = if (isDarkTheme) Color(0xFF121212) else Color(0xFFFFFFFF)
     val textColor = if (isDarkTheme) Color.White else Color(0xFF333333)
-    val operatorButtonColor = if (isDarkTheme) Color(0xFF0D6EFD) else Color(0xFF0D6EFD)
-    val numberButtonColor = if (isDarkTheme) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
-    val accentButtonColor = if (isDarkTheme) Color(0xFF0D6EFD) else Color(0xFF0D6EFD)
+    val operatorButtonColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color(0xFFF5F5F5)
+    val numberButtonColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color(0xFFF5F5F5)
+    val accentButtonColor = Color(0xFFFF5252)
+    val selectedButtonColor = if (isDarkTheme) Color(0xFF444444) else Color(0xFFE0E0E0)
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(if (isDarkTheme) Color(0xFF121212) else Color(0xFFADE1F5))
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = backgroundColor
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp))
-                .background(backgroundColor)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize()
+                .padding(16.dp)
         ) {
-            Switch(
-                checked = isDarkTheme,
-                onCheckedChange = { onThemeChange(it) },
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
+            // Верхняя панель с заголовком и кнопками
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = "Menu",
+                    tint = textColor,
+                    modifier = Modifier.clickable { /* Можно добавить меню */ }
+                )
+                
+                Text(
+                    text = "Calc.",
+                    color = textColor,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = textColor,
+                    modifier = Modifier.clickable { /* Можно добавить действие закрытия */ }
+                )
+            }
+            
+            // Область отображения вычислений
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 24.dp),
+                    .weight(1f),
+                verticalArrangement = Arrangement.Bottom,
                 horizontalAlignment = Alignment.End
             ) {
-                if (history.isNotEmpty()) {
+                // Отображение текущего выражения
+                if (currentCalculation.isNotEmpty()) {
                     Text(
-                        text = history,
+                        text = currentCalculation,
                         color = textColor.copy(alpha = 0.6f),
-                        fontSize = 14.sp,
+                        fontSize = 20.sp,
                         textAlign = TextAlign.End,
-                        modifier = Modifier.padding(bottom = 4.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
                     )
                 }
-
+                
+                // Отображение результата
                 Text(
                     text = if (result == "0" && input.isNotEmpty()) input else result,
                     color = textColor,
                     fontSize = 48.sp,
                     fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.End
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
-
-            LazyColumn(
+            
+            // Клавиатура калькулятора
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(150.dp)
-                    .padding(vertical = 8.dp),
-                reverseLayout = true
+                    .padding(top = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(historyList.size) { index ->
-                    Text(
-                        text = historyList[index],
-                        modifier = Modifier.padding(8.dp),
-                        color = textColor.copy(alpha = 0.7f),
-                        fontSize = 14.sp
-                    )
+                if (showScientificKeypad) {
+                    // Научные функции
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        MinimalistCalculatorButton(
+                            text = if (isRadians) "RAD" else "DEG",
+                            textColor = textColor,
+                            backgroundColor = operatorButtonColor,
+                            modifier = Modifier.weight(1f),
+                            onClick = { isRadians = !isRadians }
+                        )
+                        MinimalistCalculatorButton(
+                            text = "sin",
+                            textColor = textColor,
+                            backgroundColor = operatorButtonColor,
+                            modifier = Modifier.weight(1f),
+                            onClick = { 
+                                if (input.isNotEmpty()) {
+                                    val angle = input.toDoubleOrNull() ?: 0.0
+                                    val resultValue = if (isRadians) sin(angle) else sin(degreesToRadians(angle))
+                                    input = resultValue.toString()
+                                    result = input
+                                }
+                            }
+                        )
+                        MinimalistCalculatorButton(
+                            text = "cos",
+                            textColor = textColor,
+                            backgroundColor = operatorButtonColor,
+                            modifier = Modifier.weight(1f),
+                            onClick = { 
+                                if (input.isNotEmpty()) {
+                                    val angle = input.toDoubleOrNull() ?: 0.0
+                                    val resultValue = if (isRadians) cos(angle) else cos(degreesToRadians(angle))
+                                    input = resultValue.toString()
+                                    result = input
+                                }
+                            }
+                        )
+                        MinimalistCalculatorButton(
+                            text = "tan",
+                            textColor = textColor,
+                            backgroundColor = operatorButtonColor,
+                            modifier = Modifier.weight(1f),
+                            onClick = { 
+                                if (input.isNotEmpty()) {
+                                    val angle = input.toDoubleOrNull() ?: 0.0
+                                    val resultValue = if (isRadians) tan(angle) else tan(degreesToRadians(angle))
+                                    input = resultValue.toString()
+                                    result = input
+                                }
+                            }
+                        )
+                    }
+                    
+                    // Дополнительные функции
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        MinimalistCalculatorButton(
+                            text = "π",
+                            textColor = textColor,
+                            backgroundColor = operatorButtonColor,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                input = PI.toString()
+                                result = input
+                            }
+                        )
+                        MinimalistCalculatorButton(
+                            text = "e",
+                            textColor = textColor,
+                            backgroundColor = operatorButtonColor,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                input = E.toString()
+                                result = input
+                            }
+                        )
+                        MinimalistCalculatorButton(
+                            text = "√",
+                            textColor = textColor,
+                            backgroundColor = operatorButtonColor,
+                            modifier = Modifier.weight(1f),
+                            onClick = { 
+                                if (input.isNotEmpty()) {
+                                    val value = input.toDoubleOrNull() ?: 0.0
+                                    input = sqrt(value).toString()
+                                    result = input
+                                }
+                            }
+                        )
+                        MinimalistCalculatorButton(
+                            text = "^",
+                            textColor = textColor,
+                            backgroundColor = operatorButtonColor,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                if (input.isNotEmpty()) {
+                                    operation = "^"
+                                    previousNumber = input
+                                    currentCalculation = "$input ^"
+                                    input = ""
+                                }
+                            }
+                        )
+                    }
                 }
-            }
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+                
+                // Основная клавиатура
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    ModernCalculatorButton(
-                        text = "AC",
+                    MinimalistCalculatorButton(
+                        text = "C",
                         textColor = textColor,
-                        backgroundColor = numberButtonColor,
+                        backgroundColor = operatorButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             input = ""
                             result = "0"
                             operation = ""
-                            history = ""
-                            historyList.clear()
+                            currentCalculation = ""
+                            previousNumber = ""
                         }
                     )
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = "+/-",
                         textColor = textColor,
-                        backgroundColor = numberButtonColor,
+                        backgroundColor = operatorButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             if (input.isNotEmpty()) {
@@ -161,32 +284,38 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
                                 } else {
                                     "-$input"
                                 }
-                                if (operation.isEmpty()) result = input
+                                result = input
+                            } else if (result != "0") {
+                                result = if (result.startsWith("-")) {
+                                    result.substring(1)
+                                } else {
+                                    "-$result"
+                                }
                             }
                         }
                     )
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = "%",
                         textColor = textColor,
-                        backgroundColor = numberButtonColor,
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            if (input.isNotEmpty()) {
-                                val value = input.toDoubleOrNull() ?: 0.0
-                                result = (value / 100).toString()
-                                input = result
-                            }
-                        }
-                    )
-                    ModernCalculatorButton(
-                        text = "÷",
-                        textColor = Color.White,
                         backgroundColor = operatorButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             if (input.isNotEmpty()) {
-                                operation = "÷"
-                                history = input
+                                input = (input.toDoubleOrNull()?.div(100) ?: 0.0).toString()
+                                result = input
+                            }
+                        }
+                    )
+                    MinimalistCalculatorButton(
+                        text = "/",
+                        textColor = Color.White,
+                        backgroundColor = accentButtonColor,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            if (input.isNotEmpty()) {
+                                operation = "/"
+                                previousNumber = input
+                                currentCalculation = "$input /"
                                 input = ""
                             }
                         }
@@ -195,47 +324,48 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = "7",
                         textColor = textColor,
                         backgroundColor = numberButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             input += "7"
-                            if (operation.isEmpty()) result = input
+                            result = input
                         }
                     )
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = "8",
                         textColor = textColor,
-                        backgroundColor = numberButtonColor,
+                        backgroundColor = selectedButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             input += "8"
-                            if (operation.isEmpty()) result = input
+                            result = input
                         }
                     )
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = "9",
                         textColor = textColor,
                         backgroundColor = numberButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             input += "9"
-                            if (operation.isEmpty()) result = input
+                            result = input
                         }
                     )
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = "×",
                         textColor = Color.White,
-                        backgroundColor = operatorButtonColor,
+                        backgroundColor = accentButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             if (input.isNotEmpty()) {
-                                operation = "×"
-                                history = input
+                                operation = "*"
+                                previousNumber = input
+                                currentCalculation = "$input ×"
                                 input = ""
                             }
                         }
@@ -244,47 +374,48 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = "4",
                         textColor = textColor,
                         backgroundColor = numberButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             input += "4"
-                            if (operation.isEmpty()) result = input
+                            result = input
                         }
                     )
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = "5",
                         textColor = textColor,
                         backgroundColor = numberButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             input += "5"
-                            if (operation.isEmpty()) result = input
+                            result = input
                         }
                     )
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = "6",
                         textColor = textColor,
                         backgroundColor = numberButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             input += "6"
-                            if (operation.isEmpty()) result = input
+                            result = input
                         }
                     )
-                    ModernCalculatorButton(
-                        text = "-",
+                    MinimalistCalculatorButton(
+                        text = "+",
                         textColor = Color.White,
-                        backgroundColor = operatorButtonColor,
+                        backgroundColor = accentButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             if (input.isNotEmpty()) {
-                                operation = "-"
-                                history = input
+                                operation = "+"
+                                previousNumber = input
+                                currentCalculation = "$input +"
                                 input = ""
                             }
                         }
@@ -293,47 +424,48 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = "1",
                         textColor = textColor,
                         backgroundColor = numberButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             input += "1"
-                            if (operation.isEmpty()) result = input
+                            result = input
                         }
                     )
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = "2",
                         textColor = textColor,
                         backgroundColor = numberButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             input += "2"
-                            if (operation.isEmpty()) result = input
+                            result = input
                         }
                     )
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = "3",
                         textColor = textColor,
                         backgroundColor = numberButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             input += "3"
-                            if (operation.isEmpty()) result = input
+                            result = input
                         }
                     )
-                    ModernCalculatorButton(
-                        text = "+",
+                    MinimalistCalculatorButton(
+                        text = "-",
                         textColor = Color.White,
-                        backgroundColor = operatorButtonColor,
+                        backgroundColor = accentButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             if (input.isNotEmpty()) {
-                                operation = "+"
-                                history = input
+                                operation = "-"
+                                previousNumber = input
+                                currentCalculation = "$input -"
                                 input = ""
                             }
                         }
@@ -342,57 +474,111 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
+                        text = "00",
+                        textColor = textColor,
+                        backgroundColor = numberButtonColor,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            if (input != "0") {
+                                input += "00"
+                                result = input
+                            }
+                        }
+                    )
+                    MinimalistCalculatorButton(
                         text = "0",
                         textColor = textColor,
                         backgroundColor = numberButtonColor,
-                        modifier = Modifier.weight(2f),
+                        modifier = Modifier.weight(1f),
                         onClick = {
-                            input += "0"
-                            if (operation.isEmpty()) result = input
+                            if (input != "0") {
+                                input += "0"
+                                result = input
+                            }
                         }
                     )
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = ".",
                         textColor = textColor,
                         backgroundColor = numberButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
-                            if (!input.contains(".")) {
-                                input += if (input.isEmpty()) "0." else "."
-                                if (operation.isEmpty()) result = input
+                            if (input.isEmpty()) {
+                                input = "0."
+                            } else if (!input.contains(".")) {
+                                input += "."
                             }
+                            result = input
                         }
                     )
-                    ModernCalculatorButton(
+                    MinimalistCalculatorButton(
                         text = "=",
                         textColor = Color.White,
                         backgroundColor = accentButtonColor,
                         modifier = Modifier.weight(1f),
                         onClick = {
-                            if (input.isNotEmpty() && history.isNotEmpty()) {
-                                val num1 = history.toDoubleOrNull() ?: 0.0
+                            if (input.isNotEmpty() && operation.isNotEmpty() && previousNumber.isNotEmpty()) {
+                                val num1 = previousNumber.toDoubleOrNull() ?: 0.0
                                 val num2 = input.toDoubleOrNull() ?: 0.0
-                                val calculatedResult = when (operation) {
+                                val calculationResult = when (operation) {
                                     "+" -> num1 + num2
                                     "-" -> num1 - num2
-                                    "×" -> num1 * num2
-                                    "÷" -> if (num2 != 0.0) num1 / num2 else Double.NaN
-                                    else -> num2
+                                    "*" -> num1 * num2
+                                    "/" -> if (num2 != 0.0) num1 / num2 else Double.NaN
+                                    "^" -> num1.pow(num2)
+                                    else -> 0.0
                                 }
 
-                                val displayHistory = "$history $operation $input = $result"
-                                historyList.add(0, displayHistory)
-                                if (historyList.size > 10) {
-                                    historyList.removeAt(historyList.lastIndex)
+                                val operationSymbol = when (operation) {
+                                    "+" -> "+"
+                                    "-" -> "-"
+                                    "*" -> "×"
+                                    "/" -> "/"
+                                    "^" -> "^"
+                                    else -> ""
                                 }
-                                result = if (calculatedResult.isNaN()) "Error" else calculatedResult.toString()
+
+                                currentCalculation = "$previousNumber $operationSymbol $input ="
+                                result = calculationResult.toString()
                                 input = ""
                                 operation = ""
+                                previousNumber = result
                             }
                         }
+                    )
+                }
+                
+                // Кнопка для переключения между обычной и научной клавиатурой
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    TextButton(
+                        onClick = { showScientificKeypad = !showScientificKeypad },
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        Text(
+                            text = if (showScientificKeypad) "Скрыть научные функции" else "Показать научные функции",
+                            color = textColor.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+                
+                // Переключатель темы
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Switch(
+                        checked = isDarkTheme,
+                        onCheckedChange = { onThemeChange(it) }
                     )
                 }
             }
@@ -401,28 +587,25 @@ fun ModernCalculator(isDarkTheme: Boolean, onThemeChange: (Boolean) -> Unit) {
 }
 
 @Composable
-fun ModernCalculatorButton(
+fun MinimalistCalculatorButton(
     text: String,
     textColor: Color,
     backgroundColor: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Button(
-        onClick = onClick,
+    Box(
         modifier = modifier
-            .height(60.dp)
-            .aspectRatio(1f, matchHeightConstraintsFirst = true),
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = backgroundColor,
-            contentColor = textColor
-        ),
-        contentPadding = PaddingValues(0.dp)
+            .aspectRatio(1f)
+            .clip(CircleShape)
+            .background(backgroundColor)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            fontSize = 22.sp,
+            color = textColor,
+            fontSize = 20.sp,
             fontWeight = FontWeight.Medium
         )
     }
